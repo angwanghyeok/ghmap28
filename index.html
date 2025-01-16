@@ -57,19 +57,47 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // Leaflet 지도 생성
-        const map = L.map('map').setView([37.5665, 126.9780], 15);
+        const map = L.map('map').setView([37.5665, 126.9780], 15); // 초기 좌표는 서울
 
+        // 지도 타일 추가
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
         }).addTo(map);
 
-        const marker = L.marker([37.5665, 126.9780]).addTo(map);
-        const circle = L.circle([37.5665, 126.9780], { radius: 12.5, color: 'blue', fillOpacity: 0.5 }).addTo(map);
+        const marker = L.marker([0, 0]).addTo(map);
+        const circle = L.circle([0, 0], { radius: 12.5, color: 'blue', fillOpacity: 0.5 }).addTo(map);
 
-        const moveStep = 0.0001; // 속도를 많이 줄임
-        const keysPressed = {};
+        const moveStep = 0.00005; // 키보드 이동 및 조이스틱 속도를 많이 낮춤
+        const keysPressed = {}; // 키보드 입력 상태 저장
 
+        // 위치 갱신 함수
+        function updateLocation() {
+            if (!navigator.geolocation) {
+                alert("Geolocation을 지원하지 않는 브라우저입니다.");
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const { latitude, longitude } = position.coords;
+                    marker.setLatLng([latitude, longitude]);
+                    circle.setLatLng([latitude, longitude]);
+                    map.setView([latitude, longitude], 15); // 지도 중심을 현위치로 설정
+                },
+                (error) => {
+                    alert("현재 위치를 가져올 수 없습니다: " + error.message);
+                },
+                { enableHighAccuracy: true }
+            );
+        }
+
+        // 페이지 로드 시 초기 위치 설정
+        updateLocation();
+
+        // 현위치 버튼 동작
+        document.getElementById('location-button').addEventListener('click', updateLocation);
+
+        // 키보드 이동 처리
         function handleKeyDown(event) {
             keysPressed[event.key.toLowerCase()] = true;
         }
@@ -99,7 +127,7 @@
         document.addEventListener('keyup', handleKeyUp);
         moveMarker();
 
-        // 조이스틱 처리
+        // 조이스틱 이동 처리
         const joystickContainer = document.getElementById('joystick-container');
         const joystick = document.getElementById('joystick');
         let isDragging = false;
