@@ -34,17 +34,25 @@
             top: 30px;
             left: 30px;
         }
-        #location-button {
+        #button-container {
             position: absolute;
-            top: 10px;
+            top: 60px;
             right: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 1000;
+        }
+        button {
             padding: 10px;
             background: #007bff;
             color: white;
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            z-index: 1000;
+        }
+        button.active {
+            background: #0056b3;
         }
     </style>
 </head>
@@ -53,7 +61,11 @@
     <div id="joystick-container">
         <div id="joystick"></div>
     </div>
-    <button id="location-button">현위치</button>
+    <div id="button-container">
+        <button id="location-button">현위치</button>
+        <button id="walk-button" class="active">걷기</button>
+        <button id="car-button">자동차</button>
+    </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
@@ -67,7 +79,7 @@
         const marker = L.marker([0, 0]).addTo(map); // 위치 표시 마커
         const circle = L.circle([0, 0], { radius: 12.5, color: 'blue', fillOpacity: 0.5 }).addTo(map);
 
-        const moveStep = 0.00001; // 조이스틱 이동 속도 감소
+        let moveStep = 0.000005; // 기본 속도: 걷기 속도 (자동차 속도의 1/2)
         let joystickDirection = { x: 0, y: 0 }; // 조이스틱 방향 저장
 
         // 위치 갱신 함수
@@ -96,6 +108,22 @@
 
         // 현위치 버튼 동작
         document.getElementById('location-button').addEventListener('click', updateLocation);
+
+        // 걷기/자동차 속도 변경 버튼 동작
+        const walkButton = document.getElementById('walk-button');
+        const carButton = document.getElementById('car-button');
+
+        walkButton.addEventListener('click', () => {
+            moveStep = 0.000005; // 걷기 속도
+            walkButton.classList.add('active');
+            carButton.classList.remove('active');
+        });
+
+        carButton.addEventListener('click', () => {
+            moveStep = 0.00001; // 자동차 속도
+            carButton.classList.add('active');
+            walkButton.classList.remove('active');
+        });
 
         // 조이스틱 동작 처리
         const joystickContainer = document.getElementById('joystick-container');
@@ -157,17 +185,6 @@
         }
 
         moveWithJoystick();
-
-        // 지도 탐색: 화면 터치 시 마커 고정
-        let isDraggingMap = false;
-
-        map.on('dragstart', () => {
-            isDraggingMap = true;
-        });
-
-        map.on('dragend', () => {
-            isDraggingMap = false;
-        });
     </script>
 </body>
 </html>
