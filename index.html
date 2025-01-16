@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>지도 검색 및 이동</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/nipplejs@0.9.0/dist/nipplejs.min.js"></script>
     <style>
         body {
             margin: 0;
@@ -78,6 +79,14 @@
             gap: 10px;
             z-index: 1000;
         }
+        #joystick-container {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            width: 150px;
+            height: 150px;
+            z-index: 1000;
+        }
     </style>
 </head>
 <body>
@@ -89,10 +98,11 @@
         <button id="search-button">검색</button>
     </div>
 
-    <!-- 조이스틱, 현위치, 걷기/자동차 버튼 -->
+    <!-- 조이스틱, 현위치, 걷기/날기/자동차 버튼 -->
     <div id="button-container">
         <button id="location-button">현위치</button>
         <button id="walk-button" class="active">걷기</button>
+        <button id="fly-button">날기</button>
         <button id="car-button">자동차</button>
         <button id="move-button">이동</button>
     </div>
@@ -103,6 +113,9 @@
         <button id="confirm-button">확인</button>
         <button id="cancel-button">취소</button>
     </div>
+
+    <!-- 조이스틱 -->
+    <div id="joystick-container"></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
@@ -116,7 +129,7 @@
         const marker = L.marker([0, 0]).addTo(map); // 위치 표시 마커
         const circle = L.circle([0, 0], { radius: 12.5, color: 'blue', fillOpacity: 0.5 }).addTo(map);
 
-        let moveStep = 0.000005; // 기본 속도: 걷기 속도
+        let moveStep = 0.000001; // 기본 속도: 걷기 속도
         let isMoving = false;
 
         // 초기 위치 업데이트
@@ -142,64 +155,79 @@
 
         document.getElementById('location-button').addEventListener('click', updateLocation);
 
-        // 걷기/자동차 속도 변경
+        // 걷기/날기/자동차 속도 변경
         const walkButton = document.getElementById('walk-button');
+        const flyButton = document.getElementById('fly-button');
         const carButton = document.getElementById('car-button');
+
         walkButton.addEventListener('click', () => {
             moveStep = 0.000001; // 걷기 속도
             walkButton.classList.add('active');
+            flyButton.classList.remove('active');
             carButton.classList.remove('active');
         });
+
+        flyButton.addEventListener('click', () => {
+            moveStep = 0.00005; // 날기 속도
+            flyButton.classList.add('active');
+            walkButton.classList.remove('active');
+            carButton.classList.remove('active');
+        });
+
         carButton.addEventListener('click', () => {
             moveStep = 0.00001; // 자동차 속도
             carButton.classList.add('active');
             walkButton.classList.remove('active');
+            flyButton.classList.remove('active');
         });
 
-        // 검색 기능
-        document.getElementById('search-button').addEventListener('click', () => {
-            const query = document.getElementById('search-input').value;
-            if (!query) return;
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.length > 0) {
-                        const { lat, lon } = data[0];
-                        map.setView([lat, lon], 15); // 검색 결과로 지도 이동
-                    } else {
-                        alert("결과를 찾을 수 없습니다.");
-                    }
-                })
-                .catch(err => alert("검색 중 오류가 발생했습니다."));
+        // 키보드 이동
+        const keysPressed = {};
+        function handleKeyDown(event) {
+            keysPressed[event.key.toLowerCase()] = true;
+        }
+        function handleKeyUp(event) {
+            keysPressed[event.key.toLowerCase()] = false;
+        }
+        function moveMarkerWithKeyboard() {
+            const currentLatLng = marker.getLatLng();
+            let newLat = currentLatLng.lat;
+            let newLng = currentLatLng.lng;
+
+            if (keysPressed['w'] || keysPressed['arrowup']) newLat += moveStep;
+            if (keysPressed['s'] || keysPressed['arrowdown']) newLat -= moveStep;
+            if (keysPressed['a'] || keysPressed['arrowleft']) newLng -= moveStep;
+            if (keysPressed['d'] || keysPressed['arrowright']) newLng += moveStep;
+
+            marker.setLatLng([newLat, newLng]);
+            circle.setLatLng([newLat, newLng]);
+            map.panTo([newLat, newLng]);
+
+            requestAnimationFrame(moveMarkerWithKeyboard);
+        }
+        document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('keyup', handleKeyUp);
+        moveMarkerWithKeyboard();
+
+        // 조이스틱 추가
+        const joystickContainer = document.getElementById('joystick-container');
+        const joystick = nipplejs.create({
+            zone: joystickContainer,
+            mode: 'dynamic',
+            position: { left: '50%', top: '50%' },
+            color: 'blue',
         });
 
-        // 이동 버튼 동작
-        const moveButton = document.getElementById('move-button');
-        const crosshair = document.getElementById('crosshair');
-        const actionButtons = document.getElementById('action-buttons');
+        joystick.on('move', (evt, data) => {
+            if (!data.angle) return;
+            const currentLatLng = marker.getLatLng();
+            const angle = data.angle.degree;
+            const dx = Math.cos((angle * Math.PI) / 180) * moveStep;
+            const dy = Math.sin((angle * Math.PI) / 180) * moveStep;
 
-        moveButton.addEventListener('click', () => {
-            isMoving = true;
-            crosshair.style.display = 'block'; // 십자가 표시
-            actionButtons.style.display = 'flex'; // 확인/취소 버튼 표시
-        });
-
-        // 확인 버튼: 마커를 십자가 위치로 이동
-        document.getElementById('confirm-button').addEventListener('click', () => {
-            if (!isMoving) return;
-            const center = map.getCenter();
-            marker.setLatLng(center);
-            circle.setLatLng(center);
-            crosshair.style.display = 'none';
-            actionButtons.style.display = 'none';
-            isMoving = false;
-        });
-
-        // 취소 버튼: 십자가 숨기기
-        document.getElementById('cancel-button').addEventListener('click', () => {
-            crosshair.style.display = 'none';
-            actionButtons.style.display = 'none';
-            isMoving = false;
+            marker.setLatLng([currentLatLng.lat + dy, currentLatLng.lng + dx]);
+            circle.setLatLng([currentLatLng.lat + dy, currentLatLng.lng + dx]);
+            map.panTo([currentLatLng.lat + dy, currentLatLng.lng + dx]);
         });
     </script>
 </body>
