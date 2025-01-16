@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>조이스틱과 지도 탐색</title>
+    <title>지도 검색 및 이동</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         body {
@@ -14,25 +14,28 @@
             height: 100vh;
             width: 100%;
         }
-        #joystick-container {
+        #search-container {
             position: absolute;
-            bottom: 50px;
-            left: 50px;
-            width: 100px;
-            height: 100px;
-            background: rgba(0, 0, 0, 0.1);
-            border-radius: 50%;
-            touch-action: none;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
             z-index: 1000;
+            display: flex;
         }
-        #joystick {
-            position: absolute;
-            width: 40px;
-            height: 40px;
-            background: rgba(0, 0, 255, 0.8);
-            border-radius: 50%;
-            top: 30px;
-            left: 30px;
+        #search-container input {
+            width: 300px;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px 0 0 5px;
+            outline: none;
+        }
+        #search-container button {
+            padding: 8px 12px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 0 5px 5px 0;
+            cursor: pointer;
         }
         #button-container {
             position: absolute;
@@ -54,17 +57,51 @@
         button.active {
             background: #0056b3;
         }
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            background: transparent;
+            border: 2px solid red;
+            transform: translate(-50%, -50%);
+            display: none;
+            z-index: 1000;
+        }
+        #action-buttons {
+            position: absolute;
+            bottom: 60px;
+            right: 10px;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 1000;
+        }
     </style>
 </head>
 <body>
     <div id="map"></div>
-    <div id="joystick-container">
-        <div id="joystick"></div>
+
+    <!-- 검색창 -->
+    <div id="search-container">
+        <input type="text" id="search-input" placeholder="장소를 검색하세요">
+        <button id="search-button">검색</button>
     </div>
+
+    <!-- 조이스틱, 현위치, 걷기/자동차 버튼 -->
     <div id="button-container">
         <button id="location-button">현위치</button>
         <button id="walk-button" class="active">걷기</button>
         <button id="car-button">자동차</button>
+        <button id="move-button">이동</button>
+    </div>
+
+    <!-- 십자가 및 확인/취소 버튼 -->
+    <div id="crosshair"></div>
+    <div id="action-buttons">
+        <button id="confirm-button">확인</button>
+        <button id="cancel-button">취소</button>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -79,16 +116,15 @@
         const marker = L.marker([0, 0]).addTo(map); // 위치 표시 마커
         const circle = L.circle([0, 0], { radius: 12.5, color: 'blue', fillOpacity: 0.5 }).addTo(map);
 
-        let moveStep = 0.000005; // 기본 속도: 걷기 속도 (자동차 속도의 1/2)
-        let joystickDirection = { x: 0, y: 0 }; // 조이스틱 방향 저장
+        let moveStep = 0.000005; // 기본 속도: 걷기 속도
+        let isMoving = false;
 
-        // 위치 갱신 함수
+        // 초기 위치 업데이트
         function updateLocation() {
             if (!navigator.geolocation) {
                 alert("Geolocation을 지원하지 않는 브라우저입니다.");
                 return;
             }
-
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     const { latitude, longitude } = position.coords;
@@ -102,89 +138,69 @@
                 { enableHighAccuracy: true }
             );
         }
+        updateLocation(); // 초기 위치 설정
 
-        // 페이지 로드 시 초기 위치 설정
-        updateLocation();
-
-        // 현위치 버튼 동작
         document.getElementById('location-button').addEventListener('click', updateLocation);
 
-        // 걷기/자동차 속도 변경 버튼 동작
+        // 걷기/자동차 속도 변경
         const walkButton = document.getElementById('walk-button');
         const carButton = document.getElementById('car-button');
-
         walkButton.addEventListener('click', () => {
-            moveStep = 0.000005; // 걷기 속도
+            moveStep = 0.000001; // 걷기 속도
             walkButton.classList.add('active');
             carButton.classList.remove('active');
         });
-
         carButton.addEventListener('click', () => {
             moveStep = 0.00001; // 자동차 속도
             carButton.classList.add('active');
             walkButton.classList.remove('active');
         });
 
-        // 조이스틱 동작 처리
-        const joystickContainer = document.getElementById('joystick-container');
-        const joystick = document.getElementById('joystick');
-        let isDragging = false;
-        let startX = 0, startY = 0;
-
-        joystick.addEventListener('touchstart', (e) => {
-            isDragging = true;
-            const touch = e.touches[0];
-            startX = touch.clientX;
-            startY = touch.clientY;
+        // 검색 기능
+        document.getElementById('search-button').addEventListener('click', () => {
+            const query = document.getElementById('search-input').value;
+            if (!query) return;
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.length > 0) {
+                        const { lat, lon } = data[0];
+                        map.setView([lat, lon], 15); // 검색 결과로 지도 이동
+                    } else {
+                        alert("결과를 찾을 수 없습니다.");
+                    }
+                })
+                .catch(err => alert("검색 중 오류가 발생했습니다."));
         });
 
-        joystick.addEventListener('touchmove', (e) => {
-            if (!isDragging) return;
+        // 이동 버튼 동작
+        const moveButton = document.getElementById('move-button');
+        const crosshair = document.getElementById('crosshair');
+        const actionButtons = document.getElementById('action-buttons');
 
-            const touch = e.touches[0];
-            const dx = touch.clientX - startX;
-            const dy = touch.clientY - startY;
-
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            const maxDistance = 50; // 조이스틱 최대 이동 거리 제한
-
-            let offsetX = dx;
-            let offsetY = dy;
-
-            if (distance > maxDistance) {
-                const ratio = maxDistance / distance;
-                offsetX *= ratio;
-                offsetY *= ratio;
-            }
-
-            joystick.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
-
-            // 방향 계산 (정규화)
-            joystickDirection.x = offsetX / maxDistance;
-            joystickDirection.y = offsetY / maxDistance;
+        moveButton.addEventListener('click', () => {
+            isMoving = true;
+            crosshair.style.display = 'block'; // 십자가 표시
+            actionButtons.style.display = 'flex'; // 확인/취소 버튼 표시
         });
 
-        joystick.addEventListener('touchend', () => {
-            isDragging = false;
-            joystick.style.transform = 'translate(0, 0)';
-            joystickDirection = { x: 0, y: 0 }; // 방향 초기화
+        // 확인 버튼: 마커를 십자가 위치로 이동
+        document.getElementById('confirm-button').addEventListener('click', () => {
+            if (!isMoving) return;
+            const center = map.getCenter();
+            marker.setLatLng(center);
+            circle.setLatLng(center);
+            crosshair.style.display = 'none';
+            actionButtons.style.display = 'none';
+            isMoving = false;
         });
 
-        // 조이스틱 이동 지속적으로 적용
-        function moveWithJoystick() {
-            if (joystickDirection.x !== 0 || joystickDirection.y !== 0) {
-                const currentLatLng = marker.getLatLng();
-                const newLat = currentLatLng.lat - joystickDirection.y * moveStep; // y 방향 이동
-                const newLng = currentLatLng.lng + joystickDirection.x * moveStep; // x 방향 이동
-
-                marker.setLatLng([newLat, newLng]);
-                circle.setLatLng([newLat, newLng]);
-                map.panTo([newLat, newLng]);
-            }
-            requestAnimationFrame(moveWithJoystick); // 지속적인 호출
-        }
-
-        moveWithJoystick();
+        // 취소 버튼: 십자가 숨기기
+        document.getElementById('cancel-button').addEventListener('click', () => {
+            crosshair.style.display = 'none';
+            actionButtons.style.display = 'none';
+            isMoving = false;
+        });
     </script>
 </body>
 </html>
