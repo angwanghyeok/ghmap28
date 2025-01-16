@@ -3,19 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>핸드폰 터치와 키보드로 제어하는 지도</title>
+    <title>핸드폰 조이스틱과 키보드로 제어하는 지도</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         body {
             margin: 0;
             padding: 0;
         }
-
         #map {
             height: 100vh;
             width: 100%;
         }
-
+        #joystick-container {
+            position: absolute;
+            bottom: 50px;
+            left: 50px;
+            width: 100px;
+            height: 100px;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            touch-action: none;
+            z-index: 1000;
+        }
+        #joystick {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: rgba(0, 0, 255, 0.8);
+            border-radius: 50%;
+            top: 30px;
+            left: 30px;
+        }
         #location-button {
             position: absolute;
             top: 10px;
@@ -32,87 +50,25 @@
 </head>
 <body>
     <div id="map"></div>
+    <div id="joystick-container">
+        <div id="joystick"></div>
+    </div>
     <button id="location-button">현위치</button>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         // Leaflet 지도 생성
-        const map = L.map('map').setView([37.5665, 126.9780], 15); // 초기 서울 중심 좌표
+        const map = L.map('map').setView([37.5665, 126.9780], 15);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
         }).addTo(map);
 
-        // 현재 위치 마커 및 동그라미
-        const marker = L.marker([0, 0], { icon: L.divIcon({ className: 'custom-icon', html: '<div style="width: 10px; height: 10px; background: blue; border-radius: 50%;"></div>' }) }).addTo(map);
-        const circle = L.circle([0, 0], { radius: 12.5, color: 'blue', fillColor: '#30f', fillOpacity: 0.5 }).addTo(map);
+        const marker = L.marker([37.5665, 126.9780]).addTo(map);
+        const circle = L.circle([37.5665, 126.9780], { radius: 12.5, color: 'blue', fillOpacity: 0.5 }).addTo(map);
 
-        // 브라우저의 Geolocation API로 현재 위치 가져오기
-        function updateLocation() {
-            if (!navigator.geolocation) {
-                alert("Geolocation을 지원하지 않는 브라우저입니다.");
-                return;
-            }
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const { latitude, longitude, accuracy } = position.coords;
-                    marker.setLatLng([latitude, longitude]);
-                    circle.setLatLng([latitude, longitude]);
-                    circle.setRadius(accuracy / 4); // 정확도를 반영한 반경 설정
-                    map.setView([latitude, longitude], 15);
-                },
-                (error) => {
-                    alert("현재 위치를 가져올 수 없습니다: " + error.message);
-                },
-                { enableHighAccuracy: true } // 높은 정확도 요청
-            );
-        }
-
-        // 초기 위치 업데이트
-        updateLocation();
-
-        // "현위치" 버튼 동작
-        document.getElementById('location-button').addEventListener('click', updateLocation);
-
-        // 터치 이동 처리
-        let startX = 0;
-        let startY = 0;
-
-        function handleTouchStart(event) {
-            const touch = event.touches[0];
-            startX = touch.clientX;
-            startY = touch.clientY;
-        }
-
-        function handleTouchMove(event) {
-            if (event.touches.length !== 1) return; // 한 손가락 동작만 처리
-            const touch = event.touches[0];
-            const endX = touch.clientX;
-            const endY = touch.clientY;
-
-            const dx = endX - startX; // X축 이동 거리
-            const dy = endY - startY; // Y축 이동 거리
-
-            const moveDistance = 0.0005; // 이동 거리 조정 (지도 상에서 작은 이동)
-            const currentLatLng = marker.getLatLng();
-            let newLat = currentLatLng.lat - dy * moveDistance; // 스와이프 방향 반영
-            let newLng = currentLatLng.lng + dx * moveDistance;
-
-            marker.setLatLng([newLat, newLng]);
-            circle.setLatLng([newLat, newLng]);
-            map.panTo([newLat, newLng]);
-
-            // 다음 이동을 위해 시작점 갱신
-            startX = endX;
-            startY = endY;
-        }
-
-        document.addEventListener('touchstart', handleTouchStart);
-        document.addEventListener('touchmove', handleTouchMove);
-
-        // 키보드 이동 처리
-        const moveStep = 0.0005; // 키보드 이동 거리
-        const keysPressed = {}; // 현재 눌린 키 상태 저장
+        const moveStep = 0.0001; // 속도를 많이 줄임
+        const keysPressed = {};
 
         function handleKeyDown(event) {
             keysPressed[event.key.toLowerCase()] = true;
@@ -127,23 +83,69 @@
             let newLat = currentLatLng.lat;
             let newLng = currentLatLng.lng;
 
-            if (keysPressed['w'] || keysPressed['arrowup']) newLat += moveStep; // 위로 이동
-            if (keysPressed['a'] || keysPressed['arrowleft']) newLng -= moveStep; // 왼쪽 이동
-            if (keysPressed['s'] || keysPressed['arrowdown']) newLat -= moveStep; // 아래로 이동
-            if (keysPressed['d'] || keysPressed['arrowright']) newLng += moveStep; // 오른쪽 이동
+            if (keysPressed['w'] || keysPressed['arrowup']) newLat += moveStep;
+            if (keysPressed['a'] || keysPressed['arrowleft']) newLng -= moveStep;
+            if (keysPressed['s'] || keysPressed['arrowdown']) newLat -= moveStep;
+            if (keysPressed['d'] || keysPressed['arrowright']) newLng += moveStep;
 
             marker.setLatLng([newLat, newLng]);
             circle.setLatLng([newLat, newLng]);
             map.panTo([newLat, newLng]);
 
-            requestAnimationFrame(moveMarker); // 계속해서 호출
+            requestAnimationFrame(moveMarker);
         }
 
         document.addEventListener('keydown', handleKeyDown);
         document.addEventListener('keyup', handleKeyUp);
-
-        // 이동 루프 시작
         moveMarker();
+
+        // 조이스틱 처리
+        const joystickContainer = document.getElementById('joystick-container');
+        const joystick = document.getElementById('joystick');
+        let isDragging = false;
+        let startX = 0, startY = 0;
+
+        joystick.addEventListener('touchstart', (e) => {
+            isDragging = true;
+            const touch = e.touches[0];
+            startX = touch.clientX;
+            startY = touch.clientY;
+        });
+
+        joystick.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+
+            const touch = e.touches[0];
+            const dx = touch.clientX - startX;
+            const dy = touch.clientY - startY;
+
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const maxDistance = 50; // 조이스틱 최대 이동 거리 제한
+
+            let offsetX = dx;
+            let offsetY = dy;
+
+            if (distance > maxDistance) {
+                const ratio = maxDistance / distance;
+                offsetX *= ratio;
+                offsetY *= ratio;
+            }
+
+            joystick.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+
+            const moveLat = -offsetY * moveStep;
+            const moveLng = offsetX * moveStep;
+
+            const currentLatLng = marker.getLatLng();
+            marker.setLatLng([currentLatLng.lat + moveLat, currentLatLng.lng + moveLng]);
+            circle.setLatLng([currentLatLng.lat + moveLat, currentLatLng.lng + moveLng]);
+            map.panTo([currentLatLng.lat + moveLat, currentLatLng.lng + moveLng]);
+        });
+
+        joystick.addEventListener('touchend', () => {
+            isDragging = false;
+            joystick.style.transform = 'translate(0, 0)';
+        });
     </script>
 </body>
 </html>
