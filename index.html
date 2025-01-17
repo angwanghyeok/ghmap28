@@ -71,7 +71,7 @@
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
     // 초기 속도 설정
-    let speed = 0.0001;
+    let speed = 0.000001;
 
     // 현위치 가져오기 함수
     function goToCurrentLocation() {
@@ -93,13 +93,13 @@
     document.getElementById('currentLocation').addEventListener('click', goToCurrentLocation);
 
     // 걷기 버튼 기능
-    document.getElementById('walk').addEventListener('click', () => speed = 0.0001);
+    document.getElementById('walk').addEventListener('click', () => speed = 0.000001);
 
     // 차타기 버튼 기능
-    document.getElementById('drive').addEventListener('click', () => speed = 0.001);
+    document.getElementById('drive').addEventListener('click', () => speed = 0.0001);
 
     // 날기 버튼 기능
-    document.getElementById('fly').addEventListener('click', () => speed = 0.02);
+    document.getElementById('fly').addEventListener('click', () => speed = 0.002);
 
     // 이동 버튼 기능
     let isMoveMode = false;
