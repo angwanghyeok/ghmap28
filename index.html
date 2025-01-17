@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>조이스틱과 키보드로 제어하는 지도</title>
+    <title>조이스틱 및 키보드 제어 지도</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         body {
@@ -14,78 +14,162 @@
             height: 100vh;
             width: 100%;
         }
-        .control-buttons {
+        .control-button {
             position: absolute;
             top: 10px;
-            right: 10px;
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-        button {
             padding: 10px;
             background: #007bff;
             color: white;
             border: none;
             border-radius: 5px;
             cursor: pointer;
+            z-index: 1000;
         }
-        button:active {
-            background: #0056b3;
+        #location-button {
+            right: 10px;
+        }
+        #walk-button {
+            left: 10px;
+        }
+        #fly-button {
+            left: 90px;
+        }
+        #drive-button {
+            left: 170px;
+        }
+        #move-button {
+            left: 250px;
         }
         #joystick-container {
             position: absolute;
             bottom: 20px;
             left: 20px;
+            width: 150px;
+            height: 150px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 50%;
             z-index: 1000;
         }
-        #crosshair {
+        #joystick {
             position: absolute;
-            top: 50%;
-            left: 50%;
+            width: 50px;
+            height: 50px;
+            background: #007bff;
+            border-radius: 50%;
+            transform: translate(50px, 50px);
+            touch-action: none;
+        }
+        #crosshair {
+            display: none;
+            position: absolute;
             width: 20px;
             height: 20px;
             background: red;
+            border: 2px solid white;
             border-radius: 50%;
             transform: translate(-50%, -50%);
-            display: none;
             z-index: 1000;
+        }
+        #confirm-button,
+        #cancel-button {
+            display: none;
+            position: absolute;
+            bottom: 20px;
+            padding: 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 1000;
+        }
+        #confirm-button {
+            left: 20px;
+        }
+        #cancel-button {
+            left: 100px;
         }
     </style>
 </head>
 <body>
     <div id="map"></div>
-    <div class="control-buttons">
-        <button id="location-button">현위치</button>
-        <button id="walk-button">걷기</button>
-        <button id="fly-button">날기</button>
-        <button id="car-button">자동차</button>
-        <button id="move-button">이동</button>
+    <button id="location-button" class="control-button">현위치</button>
+    <button id="walk-button" class="control-button">걷기</button>
+    <button id="fly-button" class="control-button">날기</button>
+    <button id="drive-button" class="control-button">자동차</button>
+    <button id="move-button" class="control-button">이동</button>
+    <div id="joystick-container">
+        <div id="joystick"></div>
     </div>
     <div id="crosshair"></div>
-    <div id="joystick-container"></div>
+    <button id="confirm-button">확인</button>
+    <button id="cancel-button">취소</button>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.9.0/nipplejs.min.js"></script>
     <script>
-        const map = L.map('map').setView([37.5665, 126.9780], 15); // 서울 중심 좌표
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+        const map = L.map('map').setView([37.5665, 126.9780], 15);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+        }).addTo(map);
 
         const marker = L.marker([0, 0], {
             icon: L.divIcon({
                 className: 'custom-icon',
-                html: '<div style="width: 10px; height: 10px; background: blue; border-radius: 50%;"></div>'
-            })
+                html: '<div style="width: 10px; height: 10px; background: blue; border-radius: 50%;"></div>',
+            }),
         }).addTo(map);
-        const circle = L.circle([0, 0], { radius: 12.5, color: 'blue', fillColor: '#30f', fillOpacity: 0.5 }).addTo(map);
 
-        let moveStep = 0.000001; // 기본 속도 (걷기)
-        const keysPressed = {};
-        let isPanning = false;
-        let isMoving = false;
+        const circle = L.circle([0, 0], {
+            radius: 12.5,
+            color: 'blue',
+            fillColor: '#30f',
+            fillOpacity: 0.5,
+        }).addTo(map);
 
-        // 위치 업데이트
+        const crosshair = document.getElementById('crosshair');
+        const confirmButton = document.getElementById('confirm-button');
+        const cancelButton = document.getElementById('cancel-button');
+        const joystick = document.getElementById('joystick');
+        const joystickContainer = document.getElementById('joystick-container');
+        const buttons = {
+            location: document.getElementById('location-button'),
+            walk: document.getElementById('walk-button'),
+            fly: document.getElementById('fly-button'),
+            drive: document.getElementById('drive-button'),
+            move: document.getElementById('move-button'),
+        };
+
+        // Speed settings
+        let moveStep = 0.000001; // Default walking speed
+        let keysPressed = {};
+        let isJoystickActive = false;
+        let joystickDx = 0;
+        let joystickDy = 0;
+
+        buttons.walk.addEventListener('click', () => {
+            moveStep = 0.000001;
+            highlightButton(buttons.walk);
+        });
+
+        buttons.fly.addEventListener('click', () => {
+            moveStep = 0.00005;
+            highlightButton(buttons.fly);
+        });
+
+        buttons.drive.addEventListener('click', () => {
+            moveStep = 0.00001;
+            highlightButton(buttons.drive);
+        });
+
+        function highlightButton(button) {
+            for (let btn of Object.values(buttons)) {
+                btn.style.background = '#007bff';
+            }
+            button.style.background = '#0056b3';
+        }
+
+                // Geolocation and marker update
         function updateLocation() {
             if (!navigator.geolocation) {
                 alert("Geolocation을 지원하지 않는 브라우저입니다.");
@@ -105,101 +189,148 @@
                 { enableHighAccuracy: true }
             );
         }
-
-        // 초기 위치 설정
         updateLocation();
+        buttons.location.addEventListener('click', updateLocation);
 
-        // 현위치 버튼
-        document.getElementById('location-button').addEventListener('click', updateLocation);
+        // Joystick functionality
+        joystick.addEventListener('mousedown', startJoystick);
+        joystick.addEventListener('touchstart', startJoystick);
+        document.addEventListener('mouseup', stopJoystick);
+        document.addEventListener('touchend', stopJoystick);
 
-        // 속도 버튼
-        document.getElementById('walk-button').addEventListener('click', () => { moveStep = 0.000001; });
-        document.getElementById('fly-button').addEventListener('click', () => { moveStep = 0.00005; });
-        document.getElementById('car-button').addEventListener('click', () => { moveStep = 0.00001; });
+        function startJoystick(event) {
+            isJoystickActive = true;
+            joystickDx = 0;
+            joystickDy = 0;
 
-        // 이동 버튼
-        const crosshair = document.getElementById('crosshair');
-        let isCrosshairActive = false;
-        document.getElementById('move-button').addEventListener('click', () => {
-            isCrosshairActive = true;
-            crosshair.style.display = 'block';
-        });
+            const rect = joystickContainer.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
 
-        map.on('click', (e) => {
-            if (isCrosshairActive) {
-                marker.setLatLng(e.latlng);
-                circle.setLatLng(e.latlng);
-                map.panTo(e.latlng);
-                crosshair.style.display = 'none';
-                isCrosshairActive = false;
+            function moveJoystick(e) {
+                const x = (e.touches ? e.touches[0].clientX : e.clientX) - centerX;
+                const y = (e.touches ? e.touches[0].clientY : e.clientY) - centerY;
+                const distance = Math.min(Math.sqrt(x * x + y * y), rect.width / 2);
+                const angle = Math.atan2(y, x);
+
+                joystickDx = Math.cos(angle) * distance / (rect.width / 2);
+                joystickDy = Math.sin(angle) * distance / (rect.height / 2);
+
+                joystick.style.transform = `translate(${50 + joystickDx * 50}px, ${50 + joystickDy * 50}px)`;
             }
-        });
 
-        // 키보드 이동 처리
-        function handleKeyDown(event) {
-            keysPressed[event.key.toLowerCase()] = true;
+            function stopJoystickMove() {
+                isJoystickActive = false;
+                joystickDx = 0;
+                joystickDy = 0;
+                joystick.style.transform = `translate(50px, 50px)`;
+
+                document.removeEventListener('mousemove', moveJoystick);
+                document.removeEventListener('touchmove', moveJoystick);
+            }
+
+            moveJoystick(event);
+            document.addEventListener('mousemove', moveJoystick);
+            document.addEventListener('touchmove', moveJoystick);
+            document.addEventListener('mouseup', stopJoystickMove, { once: true });
+            document.addEventListener('touchend', stopJoystickMove, { once: true });
         }
 
-        function handleKeyUp(event) {
-            keysPressed[event.key.toLowerCase()] = false;
+        function stopJoystick() {
+            isJoystickActive = false;
         }
 
-        function moveMarkerWithKeyboard() {
-            if (isPanning) return;
+        // Movement logic
+        function moveMarker() {
             const currentLatLng = marker.getLatLng();
-            let newLat = currentLatLng.lat;
-            let newLng = currentLatLng.lng;
+            let newLat = currentLatLng.lat + joystickDy * moveStep;
+            let newLng = currentLatLng.lng + joystickDx * moveStep;
 
             if (keysPressed['w'] || keysPressed['arrowup']) newLat += moveStep;
-            if (keysPressed['s'] || keysPressed['arrowdown']) newLat -= moveStep;
             if (keysPressed['a'] || keysPressed['arrowleft']) newLng -= moveStep;
+            if (keysPressed['s'] || keysPressed['arrowdown']) newLat -= moveStep;
             if (keysPressed['d'] || keysPressed['arrowright']) newLng += moveStep;
 
             marker.setLatLng([newLat, newLng]);
             circle.setLatLng([newLat, newLng]);
             map.panTo([newLat, newLng]);
 
-            requestAnimationFrame(moveMarkerWithKeyboard);
+            requestAnimationFrame(moveMarker);
         }
 
-        document.addEventListener('keydown', handleKeyDown);
-        document.addEventListener('keyup', handleKeyUp);
-        moveMarkerWithKeyboard();
+        document.addEventListener('keydown', (e) => (keysPressed[e.key.toLowerCase()] = true));
+        document.addEventListener('keyup', (e) => (keysPressed[e.key.toLowerCase()] = false));
 
-        // 조이스틱 설정
-        const joystick = nipplejs.create({
-            zone: document.getElementById('joystick-container'),
-            mode: 'static',
-            position: { left: '50px', bottom: '50px' },
-            color: 'blue'
+        moveMarker();
+
+        // Touch/drag to pan the map without moving the marker
+        let isDraggingMap = false;
+
+        map.on('mousedown', () => (isDraggingMap = true));
+        map.on('mouseup', () => (isDraggingMap = false));
+        map.on('drag', () => {
+            if (isDraggingMap) map.panBy([0, 0]);
         });
 
-        joystick.on('move', (evt, data) => {
-            if (!data.angle) return;
-            const angle = data.angle.degree;
-            const dx = Math.cos((angle * Math.PI) / 180) * moveStep;
-            const dy = Math.sin((angle * Math.PI) / 180) * moveStep;
+        // Move functionality with crosshair
+        buttons.move.addEventListener('click', () => {
+            crosshair.style.display = 'block';
+            confirmButton.style.display = 'block';
+            cancelButton.style.display = 'block';
 
-            function moveContinuously() {
-                const currentLatLng = marker.getLatLng();
-                const newLat = currentLatLng.lat + dy;
-                const newLng = currentLatLng.lng + dx;
+            const rect = map.getContainer().getBoundingClientRect();
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
 
-                marker.setLatLng([newLat, newLng]);
-                circle.setLatLng([newLat, newLng]);
-                map.panTo([newLat, newLng]);
+            crosshair.style.left = `${centerX}px`;
+            crosshair.style.top = `${centerY}px`;
 
-                if (joystick.get().length) {
-                    requestAnimationFrame(moveContinuously);
-                }
+            function dragCrosshair(e) {
+                const x = e.touches ? e.touches[0].clientX : e.clientX;
+                const y = e.touches ? e.touches[0].clientY : e.clientY;
+
+                crosshair.style.left = `${x}px`;
+                crosshair.style.top = `${y}px`;
             }
 
-            moveContinuously();
+            function stopDragCrosshair() {
+                document.removeEventListener('mousemove', dragCrosshair);
+                document.removeEventListener('touchmove', dragCrosshair);
+            }
+
+            crosshair.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                document.addEventListener('mousemove', dragCrosshair);
+                document.addEventListener('mouseup', stopDragCrosshair, { once: true });
+            });
+
+            crosshair.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                document.addEventListener('touchmove', dragCrosshair);
+                document.addEventListener('touchend', stopDragCrosshair, { once: true });
+            });
         });
 
-        // 지도 구경 모드
-        map.on('mousedown touchstart', () => { isPanning = true; });
-        map.on('mouseup touchend', () => { isPanning = false; });
+        confirmButton.addEventListener('click', () => {
+            const rect = map.getContainer().getBoundingClientRect();
+            const x = parseFloat(crosshair.style.left) - rect.left;
+            const y = parseFloat(crosshair.style.top) - rect.top;
+
+            const latLng = map.containerPointToLatLng([x, y]);
+            marker.setLatLng(latLng);
+            circle.setLatLng(latLng);
+            map.setView(latLng, 15);
+
+            crosshair.style.display = 'none';
+            confirmButton.style.display = 'none';
+            cancelButton.style.display = 'none';
+        });
+
+        cancelButton.addEventListener('click', () => {
+            crosshair.style.display = 'none';
+            confirmButton.style.display = 'none';
+            cancelButton.style.display = 'none';
+        });
     </script>
 </body>
 </html>
