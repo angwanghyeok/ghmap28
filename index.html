@@ -72,10 +72,9 @@
 
     // 초기 속도 설정
     let speed = 0.0001;
-    let isMoving = false;
 
-    // 현위치 버튼 기능
-    document.getElementById('currentLocation').addEventListener('click', () => {
+    // 현위치 가져오기 함수
+    function goToCurrentLocation() {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(position => {
           const { latitude, longitude } = position.coords;
@@ -85,7 +84,13 @@
       } else {
         alert('현재 위치를 가져올 수 없습니다.');
       }
-    });
+    }
+
+    // 초기 로드 시 현위치로 이동
+    goToCurrentLocation();
+
+    // 현위치 버튼 기능
+    document.getElementById('currentLocation').addEventListener('click', goToCurrentLocation);
 
     // 걷기 버튼 기능
     document.getElementById('walk').addEventListener('click', () => speed = 0.0001);
@@ -123,27 +128,21 @@
       size: 100
     });
 
-    let joystickInterval;
-    joystick.on('start', (event, data) => {
-      joystickInterval = setInterval(() => {
-        if (data.direction) {
-          const { lat, lng } = marker.getLatLng();
-          let newLat = lat;
-          let newLng = lng;
+    // 조이스틱으로 마커 이동
+    joystick.on('move', (event, data) => {
+      if (data.direction) {
+        const { lat, lng } = marker.getLatLng();
+        let newLat = lat;
+        let newLng = lng;
 
-          // 방향에 따른 좌표 이동
-          if (data.direction.y === 'up') newLat += speed;
-          if (data.direction.y === 'down') newLat -= speed;
-          if (data.direction.x === 'left') newLng -= speed;
-          if (data.direction.x === 'right') newLng += speed;
+        // 방향에 따른 좌표 이동
+        if (data.direction.y === 'up') newLat += speed;
+        if (data.direction.y === 'down') newLat -= speed;
+        if (data.direction.x === 'left') newLng -= speed;
+        if (data.direction.x === 'right') newLng += speed;
 
-          marker.setLatLng([newLat, newLng]);
-        }
-      }, 50); // 50ms 간격으로 업데이트
-    });
-
-    joystick.on('end', () => {
-      clearInterval(joystickInterval);
+        marker.setLatLng([newLat, newLng]);
+      }
     });
   </script>
 </body>
