@@ -22,12 +22,12 @@
             right: 10px;
             display: flex;
             flex-direction: column;
-            gap: 5px;
+            gap: 10px;
             z-index: 1000;
         }
 
         .control-button {
-            width: 80px;
+            width: 70px;
             height: 30px;
             background-color: blue;
             color: white;
@@ -58,7 +58,7 @@
         .joystick-handle {
             width: 40px;
             height: 40px;
-            background: blue;
+            background: green;
             border-radius: 50%;
             position: absolute;
             top: 50%;
@@ -86,7 +86,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         // Leaflet 지도 초기화
-        const map = L.map('map').setView([37.5665, 126.9780], 15); // 서울 중심 좌표
+        const map = L.map('map').setView([37.5665, 126.9780], 15); // 기본 좌표 (서울 중심)
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
         // 현재 위치 표시를 위한 파란색 마커
@@ -97,28 +97,56 @@
             })
         }).addTo(map);
 
-        // 버튼 동작 변수
-        let speed = 0.000001; // 기본 걷기 속도
+        // 기본 속도 설정
+        let speed = 0.000001; // 걷기 속도
 
         // 걷기, 자동차, 날기 버튼 동작
         document.getElementById('walk').addEventListener('click', () => { speed = 0.000001; });
         document.getElementById('car').addEventListener('click', () => { speed = 0.00001; });
         document.getElementById('fly').addEventListener('click', () => { speed = 0.00005; });
 
+        // 브라우저에서 현재 위치 가져오기
+        function moveToCurrentLocation() {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const { latitude, longitude } = pos.coords;
+                    const currentPos = [latitude, longitude];
+                    marker.setLatLng(currentPos); // 마커 위치 설정
+                    map.setView(currentPos, 15);  // 지도를 해당 위치로 이동
+                },
+                () => { alert('현위치를 가져올 수 없습니다.'); }
+            );
+        }
+
+        // 페이지 로드 시 현재 위치로 이동
+        window.onload = moveToCurrentLocation;
+
+        // 현위치 버튼 동작
+        document.getElementById('location-button').addEventListener('click', moveToCurrentLocation);
+
         // 조이스틱 동작 구현
         const joystick = document.querySelector('.joystick');
         const handle = document.querySelector('.joystick-handle');
         let isDragging = false;
 
-        joystick.addEventListener('mousedown', () => { isDragging = true; });
+        joystick.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            moveHandle(e);
+        });
+
         document.addEventListener('mouseup', () => {
             isDragging = false;
             handle.style.left = '50%';
             handle.style.top = '50%';
         });
-        document.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
 
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                moveHandle(e);
+            }
+        });
+
+        function moveHandle(e) {
             const rect = joystick.getBoundingClientRect();
             const x = e.clientX - rect.left - rect.width / 2;
             const y = e.clientY - rect.top - rect.height / 2;
@@ -126,8 +154,8 @@
             const angle = Math.atan2(y, x);
             const distance = Math.min(Math.sqrt(x ** 2 + y ** 2), rect.width / 2);
 
-            handle.style.left = `${rect.width / 2 + distance * Math.cos(angle) - handle.offsetWidth / 2}px`;
-            handle.style.top = `${rect.height / 2 + distance * Math.sin(angle) - handle.offsetHeight / 2}px`;
+            handle.style.left = `${50 + (distance / (rect.width / 2)) * Math.cos(angle) * 50}%`;
+            handle.style.top = `${50 + (distance / (rect.width / 2)) * Math.sin(angle) * 50}%`;
 
             const currentPos = marker.getLatLng();
             marker.setLatLng([
@@ -135,58 +163,7 @@
                 currentPos.lng + speed * Math.cos(angle)
             ]);
             map.panTo(marker.getLatLng());
-        });
-
-        // 이동 버튼 구현
-        let crosshair = null;
-
-        document.getElementById('move').addEventListener('click', () => {
-            if (!crosshair) {
-                crosshair = L.marker(map.getCenter(), {
-                    icon: L.divIcon({
-                        className: 'crosshair',
-                        html: '<div style="width: 20px; height: 20px; background: blue; border: 2px solid black; border-radius: 50%;"></div>',
-                    }),
-                    draggable: true,
-                }).addTo(map);
-            }
-            document.getElementById('confirm').style.display = 'block';
-            document.getElementById('cancel').style.display = 'block';
-        });
-
-        document.getElementById('confirm').addEventListener('click', () => {
-            if (crosshair) {
-                const pos = crosshair.getLatLng();
-                marker.setLatLng(pos);
-                map.panTo(pos);
-                map.removeLayer(crosshair);
-                crosshair = null;
-            }
-            document.getElementById('confirm').style.display = 'none';
-            document.getElementById('cancel').style.display = 'none';
-        });
-
-        document.getElementById('cancel').addEventListener('click', () => {
-            if (crosshair) {
-                map.removeLayer(crosshair);
-                crosshair = null;
-            }
-            document.getElementById('confirm').style.display = 'none';
-            document.getElementById('cancel').style.display = 'none';
-        });
-
-        // 현위치 버튼 동작
-        document.getElementById('location-button').addEventListener('click', () => {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    const { latitude, longitude } = pos.coords;
-                    const currentPos = [latitude, longitude];
-                    marker.setLatLng(currentPos);
-                    map.panTo(currentPos);
-                },
-                () => { alert('현위치를 가져올 수 없습니다.'); }
-            );
-        });
+        }
     </script>
 </body>
 </html>
