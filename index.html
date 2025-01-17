@@ -22,7 +22,7 @@
             right: 10px;
             display: flex;
             flex-direction: column;
-            gap: 5px;
+            gap: 10px;
             z-index: 1000;
         }
 
@@ -32,14 +32,19 @@
             border-radius: 50%;
             border: none;
             cursor: pointer;
+            text-align: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
         }
 
+        .control-button.location { background-color: lightblue; }
         .control-button.walk { background-color: black; }
         .control-button.car { background-color: red; }
-        .control-button.fly { background-color: yellow; }
+        .control-button.fly { background-color: yellow; color: black; }
         .control-button.move { background-color: blue; }
-        .control-button.confirm { background-color: green; }
-        .control-button.cancel { background-color: greenyellow; }
+        .control-button.confirm { background-color: green; display: none; }
+        .control-button.cancel { background-color: greenyellow; display: none; }
 
         .joystick {
             position: absolute;
@@ -68,13 +73,13 @@
 <body>
     <div id="map"></div>
     <div class="button-container">
-        <button id="walk" class="control-button walk"></button>
-        <button id="fly" class="control-button fly"></button>
-        <button id="car" class="control-button car"></button>
-        <button id="move" class="control-button move"></button>
-        <button id="confirm" class="control-button confirm"></button>
-        <button id="cancel" class="control-button cancel"></button>
-        <button id="location-button" class="control-button" style="background-color: lightblue;">현위치</button>
+        <button id="location-button" class="control-button location">현위치</button>
+        <button id="walk" class="control-button walk">걷기</button>
+        <button id="car" class="control-button car">차타기</button>
+        <button id="fly" class="control-button fly">날기</button>
+        <button id="move" class="control-button move">이동</button>
+        <button id="confirm" class="control-button confirm">확인</button>
+        <button id="cancel" class="control-button cancel">취소</button>
     </div>
     <div class="joystick">
         <div class="joystick-handle"></div>
@@ -96,28 +101,23 @@
 
         // 버튼 동작 변수
         let speed = 0.000001; // 기본 걷기 속도
-        let isFlying = false;
 
         // 걷기, 자동차, 날기 버튼 동작
-        document.getElementById('walk').addEventListener('click', () => {
-            speed = 0.000001; // 걷기 속도
-        });
-
-        document.getElementById('car').addEventListener('click', () => {
-            speed = 0.00001; // 자동차 속도
-        });
-
-        document.getElementById('fly').addEventListener('click', () => {
-            speed = 0.00005; // 날기 속도
-        });
+        document.getElementById('walk').addEventListener('click', () => { speed = 0.000001; });
+        document.getElementById('car').addEventListener('click', () => { speed = 0.00001; });
+        document.getElementById('fly').addEventListener('click', () => { speed = 0.00005; });
 
         // 조이스틱 동작 구현
         const joystick = document.querySelector('.joystick');
         const handle = document.querySelector('.joystick-handle');
         let isDragging = false;
 
-        joystick.addEventListener('mousedown', (e) => { isDragging = true; });
-        document.addEventListener('mouseup', () => { isDragging = false; });
+        joystick.addEventListener('mousedown', () => { isDragging = true; });
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+            handle.style.left = '50%';
+            handle.style.top = '50%';
+        });
         document.addEventListener('mousemove', (e) => {
             if (!isDragging) return;
 
@@ -139,7 +139,7 @@
             map.panTo(marker.getLatLng());
         });
 
-        // 이동 버튼 구현 (십자가 표시 및 확인/취소)
+        // 이동 버튼 구현
         let crosshair = null;
 
         document.getElementById('move').addEventListener('click', () => {
@@ -152,6 +152,8 @@
                     draggable: true,
                 }).addTo(map);
             }
+            document.getElementById('confirm').style.display = 'block';
+            document.getElementById('cancel').style.display = 'block';
         });
 
         document.getElementById('confirm').addEventListener('click', () => {
@@ -162,6 +164,8 @@
                 map.removeLayer(crosshair);
                 crosshair = null;
             }
+            document.getElementById('confirm').style.display = 'none';
+            document.getElementById('cancel').style.display = 'none';
         });
 
         document.getElementById('cancel').addEventListener('click', () => {
@@ -169,6 +173,8 @@
                 map.removeLayer(crosshair);
                 crosshair = null;
             }
+            document.getElementById('confirm').style.display = 'none';
+            document.getElementById('cancel').style.display = 'none';
         });
 
         // 현위치 버튼 동작
