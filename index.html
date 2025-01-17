@@ -66,6 +66,18 @@
             transform: translate(-50%, -50%);
             z-index: 1001;
         }
+
+        .crosshair {
+            width: 20px;
+            height: 20px;
+            border: 2px solid blue;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+            z-index: 1000;
+        }
     </style>
 </head>
 <body>
@@ -82,6 +94,7 @@
     <div class="joystick">
         <div class="joystick-handle"></div>
     </div>
+    <div class="crosshair"></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
@@ -164,6 +177,32 @@
             ]);
             map.panTo(marker.getLatLng());
         }
+
+        // 이동 버튼 동작
+        const moveButton = document.getElementById('move');
+        const confirmButton = document.getElementById('confirm');
+        const cancelButton = document.getElementById('cancel');
+        const crosshair = document.querySelector('.crosshair');
+
+        moveButton.addEventListener('click', () => {
+            crosshair.style.display = 'block';
+            confirmButton.style.display = 'block';
+            cancelButton.style.display = 'block';
+        });
+
+        confirmButton.addEventListener('click', () => {
+            const center = map.getCenter();
+            marker.setLatLng(center);
+            crosshair.style.display = 'none';
+            confirmButton.style.display = 'none';
+            cancelButton.style.display = 'none';
+        });
+
+        cancelButton.addEventListener('click', () => {
+            crosshair.style.display = 'none';
+            confirmButton.style.display = 'none';
+            cancelButton.style.display = 'none';
+        });
     </script>
 </body>
 </html>
