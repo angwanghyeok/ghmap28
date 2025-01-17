@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>지도 조작 예제</title>
+  <title>집가고싶어 만든 지도도</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://cdn.jsdelivr.net/npm/nipplejs@0.9.0"></script>
   <style>
@@ -71,7 +71,7 @@
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
     // 초기 속도 설정
-    let speed = 0.000001;
+    let speed = 0.000005;
 
     // 현위치 가져오기 함수
     function goToCurrentLocation() {
@@ -93,13 +93,13 @@
     document.getElementById('currentLocation').addEventListener('click', goToCurrentLocation);
 
     // 걷기 버튼 기능
-    document.getElementById('walk').addEventListener('click', () => speed = 0.000001);
+    document.getElementById('walk').addEventListener('click', () => speed = 0.000005);
 
     // 차타기 버튼 기능
-    document.getElementById('drive').addEventListener('click', () => speed = 0.0001);
+    document.getElementById('drive').addEventListener('click', () => speed = 0.00001);
 
     // 날기 버튼 기능
-    document.getElementById('fly').addEventListener('click', () => speed = 0.002);
+    document.getElementById('fly').addEventListener('click', () => speed = 0.0002);
 
     // 이동 버튼 기능
     let isMoveMode = false;
