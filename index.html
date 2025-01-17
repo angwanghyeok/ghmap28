@@ -22,29 +22,27 @@
             right: 10px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 5px;
             z-index: 1000;
         }
 
         .control-button {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
+            width: 80px;
+            height: 30px;
+            background-color: blue;
+            color: white;
             border: none;
-            cursor: pointer;
+            border-radius: 3px;
             text-align: center;
             font-size: 12px;
             font-weight: bold;
-            color: white;
+            cursor: pointer;
         }
 
-        .control-button.location { background-color: lightblue; }
-        .control-button.walk { background-color: black; }
-        .control-button.car { background-color: red; }
-        .control-button.fly { background-color: yellow; color: black; }
-        .control-button.move { background-color: blue; }
-        .control-button.confirm { background-color: green; display: none; }
-        .control-button.cancel { background-color: greenyellow; display: none; }
+        .control-button.confirm,
+        .control-button.cancel {
+            display: none;
+        }
 
         .joystick {
             position: absolute;
@@ -73,11 +71,11 @@
 <body>
     <div id="map"></div>
     <div class="button-container">
-        <button id="location-button" class="control-button location">현위치</button>
-        <button id="walk" class="control-button walk">걷기</button>
-        <button id="car" class="control-button car">차타기</button>
-        <button id="fly" class="control-button fly">날기</button>
-        <button id="move" class="control-button move">이동</button>
+        <button id="location-button" class="control-button">현위치</button>
+        <button id="walk" class="control-button">걷기</button>
+        <button id="car" class="control-button">차타기</button>
+        <button id="fly" class="control-button">날기</button>
+        <button id="move" class="control-button">이동</button>
         <button id="confirm" class="control-button confirm">확인</button>
         <button id="cancel" class="control-button cancel">취소</button>
     </div>
